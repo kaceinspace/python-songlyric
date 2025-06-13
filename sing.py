@@ -1,92 +1,116 @@
 import pygame
 import time
 import sys
+import math
 
+# Setup
 pygame.init()
 pygame.mixer.init()
 
-WIDTH, HEIGHT = 800, 300
+WIDTH, HEIGHT = 900, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("🎶 Bloodline Time 🎶")
+pygame.display.set_caption("🎤 Bloodline Time")
 
-BLACK = (0, 0, 0)
+# Warna
 WHITE = (255, 255, 255)
-HIGHLIGHT = (255, 50, 50)
-PROGRESS_BAR_COLOR = (50, 255, 50)
-FLASH_BG = (30, 30, 30)
+HIGHLIGHT = (255, 20, 147)
+SHADOW = (0, 0, 0)
+PROGRESS_GRADIENT = [(0, 255, 0), (255, 255, 0), (255, 0, 0)]
+FLASH_COLORS = [(20, 20, 40), (40, 0, 60), (0, 60, 60)]
 
-FONT = pygame.font.SysFont("Arial", 48, bold=True)
+# Font
+FONT = pygame.font.SysFont("Segoe UI", 44, bold=True)
 
+# Background
+bg_image = pygame.image.load("background.jpg")
+bg_image = pygame.transform.scale(bg_image, (WIDTH, HEIGHT))
+
+# Musik
 pygame.mixer.music.load("DJ BLOODLINE X TRESNO TEKANE MATI X BABY DONT GO MELODY VIRAL TIKTOK FULL SONG MAMAN FVNDY 2025.mp3")
 
+# Lirik
 lyrics = []
 with open("lirik.txt", "r", encoding="utf-8") as f:
     for line in f:
-        line = line.strip()
         if "|" in line:
             try:
-                time_sec, text = line.split("|", 1)
-                lyrics.append((int(time_sec), text))
-            except ValueError:
+                t, text = line.strip().split("|", 1)
+                lyrics.append((int(t), text.strip()))
+            except:
                 continue
 
+# Durasi lagu dan beat
+total_duration = 180
+beat_timestamps = [21, 22, 25, 26, 28, 30, 33, 35]
+
+# Progress bar
 def draw_progress_bar():
-    current_time = time.time() - start_time
-    if total_duration > 0:
-        progress = current_time / total_duration
-    else:
-        progress = 0
+    now = time.time() - start_time
+    progress = min(now / total_duration, 1.0)
     bar_width = int(WIDTH * progress)
-    pygame.draw.rect(screen, PROGRESS_BAR_COLOR, (0, HEIGHT - 20, bar_width, 10))
+    for x in range(bar_width):
+        ratio = x / WIDTH
+        r = int((1 - ratio) * PROGRESS_GRADIENT[0][0] + ratio * PROGRESS_GRADIENT[-1][0])
+        g = int((1 - ratio) * PROGRESS_GRADIENT[0][1] + ratio * PROGRESS_GRADIENT[-1][1])
+        b = int((1 - ratio) * PROGRESS_GRADIENT[0][2] + ratio * PROGRESS_GRADIENT[-1][2])
+        pygame.draw.line(screen, (r, g, b), (x, HEIGHT - 15), (x, HEIGHT - 5))
 
-def fade_in_word(word, highlight=False, flash=False):
-    for alpha in range(0, 256, 30):  # Fade in speed
-        screen.fill(FLASH_BG if flash else BLACK)
-        draw_progress_bar()
-
-        color = HIGHLIGHT if highlight else WHITE
-        word_surface = FONT.render(word, True, color)
-        word_surface.set_alpha(alpha)
-        word_rect = word_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        screen.blit(word_surface, word_rect)
-
-        pygame.display.flip()
-        pygame.time.delay(20)
-
-total_duration = 180 
-
-
-pygame.mixer.music.play()
-start_time = time.time()
-
-for t, sentence in lyrics:
-    delay = t - (time.time() - start_time)
-    if delay > 0:
-        time.sleep(delay)
-
-    words = sentence.split()
-    for i, word in enumerate(words):
+# Efek ketik + melayang per karakter
+def typewriter_lyric(text, flash=False):
+    displayed = ""
+    for i, char in enumerate(text):
+        displayed += char
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
-        is_last = (i == len(words) - 1)
+        # Flash background jika beat
+        if flash:
+            color_index = i % len(FLASH_COLORS)
+            screen.fill(FLASH_COLORS[color_index])
+        else:
+            screen.blit(bg_image, (0, 0))
 
-   
-        beat_timestamps = [21, 22, 25, 26, 28, 30, 33]
-        is_beat = t in beat_timestamps
+        draw_progress_bar()
 
-        fade_in_word(word, highlight=is_last, flash=is_beat)
-        time.sleep(0.1 if is_beat else 0.3)
+        # Hitung offset Y animasi goyang
+        wave_offset = int(math.sin(time.time() * 5) * 6)
 
+        # Shadow
+        shadow_surface = FONT.render(displayed, True, SHADOW)
+        shadow_rect = shadow_surface.get_rect(center=(WIDTH // 2 + 3, HEIGHT // 2 + wave_offset + 3))
+        screen.blit(shadow_surface, shadow_rect)
 
+        # Teks utama
+        text_surface = FONT.render(displayed, True, HIGHLIGHT)
+        text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + wave_offset))
+        screen.blit(text_surface, text_rect)
+
+        pygame.display.flip()
+        pygame.time.delay(50)  # Waktu antar karakter
+
+# Mulai lagu
+pygame.mixer.music.play()
+start_time = time.time()
+
+# Main loop
+for t, line in lyrics:
+    delay = t - (time.time() - start_time)
+    if delay > 0:
+        time.sleep(delay)
+
+    flash = t in beat_timestamps
+    typewriter_lyric(line, flash=flash)
+    time.sleep(0.3 if flash else 0.5)
+
+# Selesai
 while pygame.mixer.music.get_busy():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
-    screen.fill(BLACK)
+    screen.blit(bg_image, (0, 0))
     draw_progress_bar()
     pygame.display.flip()
     time.sleep(0.1)
