@@ -3,7 +3,7 @@ import time
 import sys
 import math
 
-# Setup
+
 pygame.init()
 pygame.mixer.init()
 
